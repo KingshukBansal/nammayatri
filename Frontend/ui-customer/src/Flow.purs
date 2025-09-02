@@ -12,10 +12,7 @@
 
   the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
 -}
-module Flow
-  ( handleExternalLocations
-  )
-  where
+module Flow where
 
 import Accessor
 import Engineering.Helpers.LogEvent
