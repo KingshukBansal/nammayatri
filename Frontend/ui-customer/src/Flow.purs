@@ -595,30 +595,6 @@ handleDeepLinks mBGlobalPayload skipDefaultCase = do
                 rideId = fromMaybe "" $ safetyParam !! 1
             modifyScreenState $ DriverProfileScreenCommonStateType ( \driverProfileScreen -> driverProfileScreen { props { rideId = rideId } } )
             driverProfileScreenFlow
-          else if startsWith "emergencyContactScreen" screen then do
-            (GetEmergContactsResp res) <- Remote.getEmergencyContactsBT GetEmergContactsReq
-            let
-              contacts =
-                getDefaultPriorityList
-                  $ map
-                      ( \(ContactDetails item) ->
-                          { number: item.mobileNumber
-                          , name: item.name
-                          , isSelected: true
-                          , enableForFollowing: fromMaybe false item.enableForFollowing
-                          , enableForShareRide: fromMaybe false item.enableForShareRide
-                          , shareTripWithEmergencyContactOption: EmergencyContactsScreenData.getRideOptionFromKeyEM $ fromMaybe API.NEVER_SHARE item.shareTripWithEmergencyContactOption
-                          , onRide: fromMaybe false item.onRide
-                          , priority: fromMaybe 1 item.priority
-                          , contactPersonId : item.contactPersonId
-                          , isFollowing : Nothing
-                          , notifiedViaFCM : item.notifiedViaFCM
-                          }
-                      )
-                      res.defaultEmergencyNumbers
-            let emergencyContactLength = Arr.length contacts
-            modifyScreenState $ EmergencyContactsScreenStateType (\emergencyContactScreen -> emergencyContactScreen { data{ selectedContacts = contacts,  emergencyContactsList = contacts },props { showDropDown = false, fromNewSafetyFlow= true, saveEmergencyContacts = true, getDefaultContacts = emergencyContactLength > 0 } })
-            emergencyScreenFlow
           else if startsWith "reportIssue" screen then do
             let issueParam = DS.split (DS.Pattern "$$") screen
                 rideId = fromMaybe "" (issueParam !! 1)
@@ -658,32 +634,6 @@ handleDeepLinks mBGlobalPayload skipDefaultCase = do
         Just _ -> handleDeepLinks mBPayload skipDefaultCase
         Nothing -> pure unit
 
-handleExternalLocations :: Maybe GlobalPayload -> FlowBT String Unit
-handleExternalLocations mBGlobalPayload = do
-  case mBGlobalPayload of
-    Just globalPayload ->
-      case globalPayload ^. _payload ^. _destination of
-        Just (LocationData destinationObj) -> do
-          (ServiceabilityRes dest) <- Remote.locServiceabilityBT (Remote.makeServiceabilityReq (destinationObj.lat) (destinationObj.lon)) DESTINATION
-          case dest.serviceable of
-            true -> do
-              case destinationObj.name of
-                Just src -> updateDataInState destinationObj.lat destinationObj.lon src (encodeAddress src [] Nothing destinationObj.lat destinationObj.lon) Nothing
-                Nothing -> do
-                    mbDestination <- getPlaceName destinationObj.lat destinationObj.lon HomeScreenData.dummyLocation true
-                    case mbDestination of
-                      Just (PlaceName destination) -> updateDataInState destinationObj.lat destinationObj.lon destination.formattedAddress (encodeAddress destination.formattedAddress destination.addressComponents destination.placeId destinationObj.lat destinationObj.lon) destination.placeId
-                      Nothing -> pure unit
-            false -> pure unit
-        Nothing -> pure unit
-    Nothing -> pure unit
-  where
-    updateDataInState lat lon addressString address placeId = do
-      void $ updateLocalStage GoToConfirmLocation
-      modifyScreenState $ HomeScreenStateType (\homescreen -> homescreen{
-          props{currentStage = GoToConfirmLocation, destinationLat = lat,destinationLong = lon,destinationPlaceId = placeId,sourceLong =  (fromMaybe 0.0 $ fromString $ getValueToLocalNativeStore LAST_KNOWN_LON) ,sourceLat =  (fromMaybe 0.0 $ fromString $ getValueToLocalNativeStore LAST_KNOWN_LAT) ,isSource = Just false,isSharedLocationFlow = true}
-        , data{ source = (getString STR.CURRENT_LOCATION),destination = addressString, destinationAddress =address}
-      })
 hideSplashAndCallFlow :: FlowBT String Unit -> FlowBT String Unit
 hideSplashAndCallFlow flow = do
   hideLoaderFlow
@@ -731,35 +681,6 @@ hybridFlow flow = do
       modifyScreenState $ TicketBookingScreenStateType (\_ -> TicketBookingScreenData.initData { props { navigateToHome = true } })
       modifyScreenState $ TicketingScreenStateType (\_ -> PlaceListData.initData { props { hideMyTickets = false } })
       placeListFlow
-    "safetytools" -> do
-      modifyScreenState
-        $ NammaSafetyScreenStateType
-            ( \nammaSafetyScreen ->
-                nammaSafetyScreen
-                  { props
-                    { triggeringSos = false
-                    , timerValue = SafetyScreenData.defaultTimerValue
-                    , showTestDrill = false
-                    , showShimmer = true
-                    , confirmTestDrill = false
-                    , isSafetyCenterDisabled = false
-                    -- , checkPastRide = state.props.currentStage == HomeScreen
-                    , isAudioRecordingActive = false
-                    , showCallPolice = false
-                    , showMenu = false
-                    , recordedAudioUrl = Nothing
-                    , audioRecordingStatus = CTA.NOT_RECORDING
-                    , recordingTimer = "00 : 00"
-                    , defaultCallPopup = false
-                    , reportPastRide = false
-                    }
-                  , data
-                    { rideId = "" -- TODO:: Need to handle this case
-                    -- , vehicleDetails =
-                    }
-                  }
-            )
-      activateSafetyScreenFlow
     _ -> pure unit
 
 
@@ -781,7 +702,6 @@ riderRideCompletedScreenFlow = do
   flow <- UI.riderRideCompletedScreen
   case flow of
     RIDER_DETAILS_SCREEN state -> do
-      modifyScreenState $ TripDetailsScreenStateType (\tripDetailsScreen -> tripDetailsScreen { props { fromMyRides = RideCompletedScreen } })
       tripDetailsScreenFlow
     GO_TO_HELP_AND_SUPPORTS -> do
       modifyScreenState $ HelpAndSupportScreenStateType (\helpAndSupportScreen -> helpAndSupportScreen { data { fromScreen = "RideCompleted" } })
@@ -1014,7 +934,6 @@ currentFlowStatus prioritizeRating = do
     modifyScreenState $ GlobalFlowCacheType (\globaFlowCache -> globaFlowCache{profileResp = Just response})
     config <- getAppConfigFlowBT appConfig
     updateVersion (response ^. _clientVersion) (response ^. _bundleVersion)
-    updateFirebaseToken (response ^. _maskedDeviceToken) getUpdateToken
     updatePersonInfo response
     updateFlowStatusStorage response
     updateCTEventData response

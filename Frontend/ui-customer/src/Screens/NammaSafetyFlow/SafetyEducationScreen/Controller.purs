@@ -62,15 +62,6 @@ eval (BackPressed) state =
   else do
     continue state { props { educationViewIndex = Nothing } }
 
-eval (ChangeEducationViewIndex index) state = do
-  let
-    newState = state { props { educationViewIndex = Just index } }
-    video = fromMaybe { videoId: "", title: "", coverImageUrl: "", description : [] } (state.data.videoList DA.!! index)
-  if state.props.showVideoView then do
-    void $ pure $ switchYoutubeVideo video.videoId
-  else pure unit
-  continue newState
-
 eval (YoutubeVideoStatus status) state = do
   if status == "ENDED" then case state.props.educationViewIndex of
     Just index -> do

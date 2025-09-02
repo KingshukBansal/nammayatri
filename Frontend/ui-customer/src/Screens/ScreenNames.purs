@@ -34,7 +34,6 @@ data ScreenName = SPLASH_SCREEN
                 | EDIT_PROFILE_SCREEN
                 | ADD_NEW_ADDRESS_SCREEN
                 | SAVED_LOCATION_SCREEN
-                | SUCCESS_SCREEN
                 | REFERRAL_SCREEN
                 | APP_UPDATE_POPUP_SCREEN
                 | ENTER_OTP_NUMBER_SCREEN

@@ -12,9 +12,6 @@
 
   the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
 -}
-
-module Screens.RentalBookingFlow.RideScheduledScreen.Controller where
-
 import Accessor (_lat, _lon, _selectedQuotes)
 import Components.GenericHeader.Controller as GenericHeaderController
 import Components.PrimaryButton.Controller as PrimaryButtonController

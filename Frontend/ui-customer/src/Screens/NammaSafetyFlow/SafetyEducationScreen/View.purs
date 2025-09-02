@@ -180,7 +180,6 @@ videoView push state =
                     , width $ V 40
                     , padding $ Padding 8 8 8 8
                     , margin $ Margin 8 8 8 8
-                    , onClick push $ const BackPressed
                     , rippleColor Color.rippleShade
                     , cornerRadius 20.0
                     ]
