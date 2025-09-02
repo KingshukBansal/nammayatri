@@ -12,7 +12,10 @@
 
   the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
 -}
-module Flow where
+module Flow
+  ( handleExternalLocations
+  )
+  where
 
 import Accessor
 import Engineering.Helpers.LogEvent
@@ -658,32 +661,6 @@ handleDeepLinks mBGlobalPayload skipDefaultCase = do
         Just _ -> handleDeepLinks mBPayload skipDefaultCase
         Nothing -> pure unit
 
-handleExternalLocations :: Maybe GlobalPayload -> FlowBT String Unit
-handleExternalLocations mBGlobalPayload = do
-  case mBGlobalPayload of
-    Just globalPayload ->
-      case globalPayload ^. _payload ^. _destination of
-        Just (LocationData destinationObj) -> do
-          (ServiceabilityRes dest) <- Remote.locServiceabilityBT (Remote.makeServiceabilityReq (destinationObj.lat) (destinationObj.lon)) DESTINATION
-          case dest.serviceable of
-            true -> do
-              case destinationObj.name of
-                Just src -> updateDataInState destinationObj.lat destinationObj.lon src (encodeAddress src [] Nothing destinationObj.lat destinationObj.lon) Nothing
-                Nothing -> do
-                    mbDestination <- getPlaceName destinationObj.lat destinationObj.lon HomeScreenData.dummyLocation true
-                    case mbDestination of
-                      Just (PlaceName destination) -> updateDataInState destinationObj.lat destinationObj.lon destination.formattedAddress (encodeAddress destination.formattedAddress destination.addressComponents destination.placeId destinationObj.lat destinationObj.lon) destination.placeId
-                      Nothing -> pure unit
-            false -> pure unit
-        Nothing -> pure unit
-    Nothing -> pure unit
-  where
-    updateDataInState lat lon addressString address placeId = do
-      void $ updateLocalStage GoToConfirmLocation
-      modifyScreenState $ HomeScreenStateType (\homescreen -> homescreen{
-          props{currentStage = GoToConfirmLocation, destinationLat = lat,destinationLong = lon,destinationPlaceId = placeId,sourceLong =  (fromMaybe 0.0 $ fromString $ getValueToLocalNativeStore LAST_KNOWN_LON) ,sourceLat =  (fromMaybe 0.0 $ fromString $ getValueToLocalNativeStore LAST_KNOWN_LAT) ,isSource = Just false,isSharedLocationFlow = true}
-        , data{ source = (getString STR.CURRENT_LOCATION),destination = addressString, destinationAddress =address}
-      })
 hideSplashAndCallFlow :: FlowBT String Unit -> FlowBT String Unit
 hideSplashAndCallFlow flow = do
   hideLoaderFlow
